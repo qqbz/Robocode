@@ -13,6 +13,7 @@ package git;
  */
 public class Point implements java.io.Serializable {
 
+    //aasdlfhasdfalsdf
 	private static final long serialVersionUID = 1L;
 
 	private double x = 0.0;
