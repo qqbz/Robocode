@@ -19,6 +19,7 @@ public class Git {
         // luk
         // simon
         // alex 
+        //einfügen Beispiel Structur
     }
     
 }
