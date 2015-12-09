@@ -20,7 +20,21 @@ public class SteinbeißerLeader extends TeamRobot {
     String target;
     boolean soloMode = false;
     Point2D goal;
+    int targetingTime;
 
+    /*
+    TO DO:
+    chooseTarget(): schnelles Ändern der Target verhindern 
+    doRadar(): Bereich eingrenzen wenn alle Bots gescannt wurden, Radarlock einführen
+    aimAndShoot(): komplett neu
+    getFirepower(): Grenzwerte mit Formel festlegen
+    */
+    
+    /*
+    Probleme:
+    Roboter aus Liste löschen, wenn sie zerstört werden - woher weiß ich, dass ein Roboter zerstört wurde? Zur not mit Timer lösen?
+    */
+    
     /*
      onScanned: table updaten
      onDeath: broadcasten
@@ -39,8 +53,9 @@ public class SteinbeißerLeader extends TeamRobot {
      Farbe                                       -----
      sich zu Liste hinzufügen                    -----
      */
+    
     public void run() {
-        RobotColors c = new RobotColors();
+        RobotColors c = new RobotColors(); //setzt alle Farben
         c.bodyColor = Color.black;
         c.gunColor = Color.green;
         c.radarColor = Color.green;
@@ -50,43 +65,54 @@ public class SteinbeißerLeader extends TeamRobot {
         setGunColor(c.gunColor);
         setRadarColor(c.radarColor);
         setScanColor(c.scanColor);
-        setBulletColor(c.bulletColor);
+        setBulletColor(c.bulletColor); //
 
-        setAdjustRadarForGunTurn(true);
-        setAdjustGunForRobotTurn(true);
+        setAdjustRadarForGunTurn(true); //für Radar notwendig
+        setAdjustGunForRobotTurn(true); //
 
-        RobotInfo leader = new RobotInfo();
-        robots.put("SteinbeißerLeader", leader);
+        RobotInfo leader = new RobotInfo(); //fügt sich selbst der Liste hinzu
+        robots.put(leader.getName(), leader); 
         leader.setIsAlive(true);
         leader.setIsTeammate(true);
+        leader.setName("SteinbeißerLeader"); //
 
-        RobotInfo droid = new RobotInfo();
-        robots.put("SteinbeißerDroid", droid);
-        droid.setIsAlive(true);
-        droid.setIsTeammate(true);
+        String[] mates = this.getTeammates(); //fügt alle Teammitglieder der Liste hinzu
+        for (String m : mates){ //notwendig? werden ja eh beim scannen erfasst
+            RobotInfo friend = new RobotInfo();
+            robots.put(m, friend);
+            friend.isAlive = true;
+            friend.ISTEAMMATE = true;
+            friend.setName(m);
+        } //
 
         do {
-            leader = (RobotInfo) robots.get("SteinbeißerLeader");
+            leader = (RobotInfo) robots.get("SteinbeißerLeader"); //updated die eigenen Werte
             leader.setLocation(this.getX(), this.getY());
             leader.setEnergy(this.getEnergy());
-            leader.setAbsHeadingRad(this.getHeading());
+            leader.setHeadingRad(this.getHeading());
             leader.setVelocity(this.getVelocity());
+            leader.setHeadingRad(this.getHeadingRadians()); //
 
             doRadar();
             aimAndShoot();
-            try {
+            chooseTarget();
+            
+            try { //sendet Liste und das momentane Ziel an den Droid
                 broadcastMessage(robots);
                 broadcastMessage(target);
             } catch (IOException ex) {
                 Logger.getLogger(SteinbeißerLeader.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            } //
+            
             move();
             execute();
+            
         } while (true);
 
     }
-
-    public void onScannedRobot(ScannedRobotEvent e) { //angelehnt an Shiz
+    
+    public void onScannedRobot(ScannedRobotEvent e) { //updated den Eintrag des gescanten Robots
+        //angelehnt an Shiz
         String scanName = e.getName();
         RobotInfo robot = (RobotInfo) robots.get(scanName);
         if (robot == null) {
@@ -95,23 +121,13 @@ public class SteinbeißerLeader extends TeamRobot {
         }
         robot.energy = e.getEnergy();
         robot.isAlive = true;
-        robot.isTeammate = isTeammate(e.getName());
-        robot.absHeadingRad = e.getBearingRadians() + getHeadingRadians();
+        robot.ISTEAMMATE = isTeammate(scanName);
         robot.velocity = e.getVelocity();
-        RobotInfo leader = (RobotInfo) robots.get("SteinbeißerLeader");
+        RobotInfo leader = (RobotInfo)robots.get("SteinbeißerLeader");
         robot.setLocation(projectPoint(new Point2D.Double(leader.getX(), leader.getY()), getHeadingRadians() + e.getBearingRadians(), e.getDistance()));
-
-        if (target != null) {
-            chooseTarget();
-        } else {
-            RobotInfo targetInfo = (RobotInfo) robots.get(target);
-            if (!targetInfo.isAlive) {
-                chooseTarget();
-            }
-        }
     }
 
-    public void onMessageReceived(MessageEvent e) {
+    public void onMessageReceived(MessageEvent e) { //schaltet in den soloMode wenn der Droid seinen Tod meldet oder updated die Position des Droid
         RobotInfo droid = (RobotInfo) robots.get("SteinbeißerDroid");
         if (e.getMessage() == "I'm dead!") {
             soloMode = true;
@@ -122,24 +138,45 @@ public class SteinbeißerLeader extends TeamRobot {
         }
     }
 
-    private String chooseTarget() {
-        String chosen = null;
-        //Code goes here --
-        return chosen;
+    private void chooseTarget() { //wählt nähesten Gegner wenn es momentan kein Ziel gibt; 
+        //wechselt Ziel wenn ein Gegner dem Leader um 100 Einheiten näher ist als das momentan Ziel entfern ist
+        //TO DO: zu schnelles Wechseln verhindern mit this.getTime()
+        String closest = null;
+        Point2D myPosition = new Point2D.Double(this.getY(), this.getX());
+        RobotInfo bot = (RobotInfo) robots.get(target);
+        double targetDistance = bot.distance(myPosition);
+        double minDistance = Double.POSITIVE_INFINITY;
+        double botDistance;
+        Set keys = robots.keySet();
+        for (Object key : keys) {
+            bot = (RobotInfo) robots.get(key);
+            if (!bot.ISTEAMMATE) {
+                botDistance = bot.distance(myPosition);
+                if (botDistance < minDistance) {
+                    minDistance = botDistance;
+                    closest = bot.getName();
+                }
+            }
+        }
+        bot = (RobotInfo) robots.get(target);
+        if (target == null || !bot.isAlive || minDistance < targetDistance-100) {
+            this.target = closest;
+        }
     }
 
-    private void doRadar() { //zunächst nur spinning radar; auch lock bei nur einem Gegner muss noch eingebaut werden
+    private void doRadar() { //zunächst nur spinning radar
         //http://robowiki.net/wiki/One_on_One_Radar#Spinning_radar
-        if (!this.soloMode){
+        //TO DO: Scanbereich möglichst eingrenzen, Radarlock einbauen
+        if (!this.soloMode) {
             turnRadarRightRadians(Double.POSITIVE_INFINITY);
         } else {
-            //CODE 
+             
         }
-        
+
     }
 
-    private void aimAndShoot() {
-        RobotInfo bot = (RobotInfo)robots.get(target);
+    private void aimAndShoot() { //TO DO: komplett neu machen
+        RobotInfo bot = (RobotInfo) robots.get(target);
         final double FIREPOWER = getFirepower();
         final double ROBOT_WIDTH = 16, ROBOT_HEIGHT = 16;
         // Variables prefixed with e- refer to enemy, b- refer to bullet and r- refer to robot
@@ -178,35 +215,37 @@ public class SteinbeißerLeader extends TeamRobot {
             setFire(FIREPOWER);
         }
     }
-    
-    private double getFirepower(){
+
+    private double getFirepower() { //errechnet die beste Feuerkraft je nach Entfernung zur target
+        //Grenzen sind momentan noch grobe Schätzungen
+        //Formel: Schadeneffizienz = E =   (6x-2)*min(1, 18/(d*asin(8/(20-3x)))     /     (10+ceil(2*x)
+        //wobei x = Firepower; d = distance
         double power;
         double distance;
-        RobotInfo bot = (RobotInfo)robots.get(target);
+        RobotInfo bot = (RobotInfo) robots.get(target);
         distance = bot.distance(this.getX(), this.getY());
-        if (distance > 300){
+        if (distance > 300) {
             power = 0.8;
-        }
-        else if (distance < 75){
+        } else if (distance < 75) {
             power = robocode.Rules.MAX_BULLET_POWER;
         } else {
-            power = 1.5;    
+            power = 1.5;
         }
         return power;
     }
-    
 
-    private double limit(double value, double min, double max) {
+    private double limit(double value, double min, double max) { //für aimAndShoot
         return Math.min(max, Math.max(min, value));
     }
 
-    private void move() {//zugriff auf hashtable: http://www.java2novice.com/java-collections-and-util/hashtable/iterate/
+    private void move() { //Anti-Gravity Movement
+        //zugriff auf hashtable: http://www.java2novice.com/java-collections-and-util/hashtable/iterate/
         //fast 1 zu 1 von: http://robowiki.net/wiki/Anti-Gravity_Tutorial
         double xForce = 0, yForce = 0;
         Set keys = robots.keySet();
         for (Object key : keys) {
-            RobotInfo robot = (RobotInfo) robots.get(key);
-            if (!robot.isTeammate) {
+            RobotInfo robot = (RobotInfo)robots.get(key);
+            if (!robot.ISTEAMMATE) {
                 double absBearing = Utils.normalAbsoluteAngle(Math.atan2(robot.getX() - this.getX(), robot.getY() - this.getY()));
                 double distance = robot.distance(getX(), getY());
                 xForce -= Math.sin(absBearing) / (distance * distance);
@@ -215,7 +254,7 @@ public class SteinbeißerLeader extends TeamRobot {
         }
         double angle = Math.atan2(xForce, yForce);
         if (xForce == 0 && yForce == 0) {
-            // If no force, do nothing
+            setAhead(5.0); //kleiner Wert damit wir nicht stehen
         } else if (Math.abs(angle - getHeadingRadians()) < Math.PI / 2) {
             setTurnRightRadians(Utils.normalRelativeAngle(angle - getHeadingRadians()));
             setAhead(Double.POSITIVE_INFINITY);
@@ -225,18 +264,18 @@ public class SteinbeißerLeader extends TeamRobot {
         }
     }
 
-    public void onDeath() {
+    public void onDeath() { //sendet dem Droid seinen Tod und eine letzte Info über alle Roboter
         RobotInfo leader = (RobotInfo) robots.get("SteinbeißerLeader");
         leader.setIsAlive(false);
         try {
             broadcastMessage("I'm dead!");
+            broadcastMessage(robots);
         } catch (IOException ex) {
             Logger.getLogger(SteinbeißerLeader.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    //von Shiz
-    private static Point2D projectPoint(Point2D startPoint, double theta, double dist) {
+    private static Point2D projectPoint(Point2D startPoint, double theta, double dist) { //von Shiz
         return new Point2D.Double(startPoint.getX() + dist * Math.sin(theta), startPoint.getY() + dist * Math.cos(theta));
     }
 

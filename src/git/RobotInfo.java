@@ -10,15 +10,23 @@ import java.awt.geom.*;
  *
  * @author SimonLaptop
  */
-public class RobotInfo extends Point2D.Double{
+public class RobotInfo extends Point2D.Double{ //TO DO: welche Werte brauchen wir wirklich?
     
+    String NAME;
     double energy;
     boolean isAlive;
     double velocity;
-    double absHeadingRad;
-    boolean isTeammate;
+    boolean ISTEAMMATE;
     double bearingRad;
     double headingRad;
+    
+    public void setName(String a){
+        this.NAME = a;
+    }
+    
+    public String getName(){
+        return this.NAME;
+    }
     
     public void setEnergy(double a){
         this.energy = a;
@@ -44,20 +52,12 @@ public class RobotInfo extends Point2D.Double{
         return this.velocity;
     }
     
-    public void setAbsHeadingRad(double a){
-        this.absHeadingRad = a;
-    }
-    
-    public double getAbsHeadingRad(){
-        return this.absHeadingRad;
-    }
-    
     public void setIsTeammate(boolean a){
-        this.isTeammate = a;
+        this.ISTEAMMATE = a;
     }
     
     public boolean getIsTeammate(){
-        return this.isTeammate;
+        return this.ISTEAMMATE;
     }
     
     public void setBearingRad(double a){
