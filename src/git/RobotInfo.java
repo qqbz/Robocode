@@ -14,9 +14,7 @@ public class RobotInfo extends Point2D.Double{ //TO DO: welche Werte brauchen wi
     
     String NAME;
     double energy;
-    boolean isAlive;
     double velocity;
-    boolean ISTEAMMATE;
     double bearingRad;
     double headingRad;
     
@@ -36,28 +34,12 @@ public class RobotInfo extends Point2D.Double{ //TO DO: welche Werte brauchen wi
         return this.energy;
     }
     
-    public void setIsAlive(boolean a){
-        this.isAlive = a;
-    }
-    
-    public boolean getIsAlive(){
-        return this.isAlive;
-    }
-    
     public void setVelocity(double a){
         this.velocity = a;
     }
     
     public double getVelocity(){
         return this.velocity;
-    }
-    
-    public void setIsTeammate(boolean a){
-        this.ISTEAMMATE = a;
-    }
-    
-    public boolean getIsTeammate(){
-        return this.ISTEAMMATE;
     }
     
     public void setBearingRad(double a){
