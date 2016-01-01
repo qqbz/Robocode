@@ -55,13 +55,13 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         robotsList = (Hashtable<String, RobotInfo>) e.getMessage();
         robotInformation = robotsList.get(bigBoss);
         target = robotInformation.getTARGET();
-        System.out.println(" Ich bin an der X-Koordinate " + getX() + " Y-Koordinate " + getY());
+//        System.out.println(" Ich bin an der X-Koordinate " + getX() + " Y-Koordinate " + getY());
         if (target == null) {
-            System.out.println("KEIN ZIEL!");
+//            System.out.println("KEIN ZIEL!");
             goTo(robotsList.get(bigBoss));
 
         } else {
-            System.out.println("HABE ZIEL!");
+//            System.out.println("HABE ZIEL!");
             goTo(robotsList.get(target));
         }
 
@@ -71,7 +71,7 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         //http://www.jasonsjava.com/?cat=2
 //		stop(); // don't move again until we are ready
         Point2D location = new Point2D.Double(getX(), getY());
-        System.out.println("JETZIGE POSITION " + location);
+//        System.out.println("JETZIGE POSITION " + location);
         double distance = location.distance(destination);
         // this angle is the amount I need to turn right to face the destination point
         double angle = Utils.normalRelativeAngleDegrees(Math.toDegrees(Math.atan2(destination.getX() - location.getX(), destination.getY() - location.getY())) - getHeading());
@@ -86,32 +86,32 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
             }
         }
 
-        out.println("Going to: " + destination);
+//        out.println("Going to: " + destination);
         turnRight(angle); // complete the turn before going any distance (blocking call from Robot class)
         setAhead(distance);
 
         // must be called because setAhead() will not move without a call to execute().
     }
 
-    double absoluteBearing(double x1, double y1, double x2, double y2) {
-        double xo = x2 - x1;
-        double yo = y2 - y1;
-        double hyp = Point2D.distance(x1, y1, x2, y2);
-        double arcSin = Math.toDegrees(Math.asin(xo / hyp));
-        double bearing = 0;
-
-        if (xo > 0 && yo > 0) { // both pos: lower-Left
-            bearing = arcSin;
-        } else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
-            bearing = 360 + arcSin; // arcsin is negative here, actuall 360 - ang
-        } else if (xo > 0 && yo < 0) { // x pos, y neg: upper-left
-            bearing = 180 - arcSin;
-        } else if (xo < 0 && yo < 0) { // both neg: upper-right
-            bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
-        }
-
-        return bearing;
-    }
+//    double absoluteBearing(double x1, double y1, double x2, double y2) {
+//        double xo = x2 - x1;
+//        double yo = y2 - y1;
+//        double hyp = Point2D.distance(x1, y1, x2, y2);
+//        double arcSin = Math.toDegrees(Math.asin(xo / hyp));
+//        double bearing = 0;
+//
+//        if (xo > 0 && yo > 0) { // both pos: lower-Left
+//            bearing = arcSin;
+//        } else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
+//            bearing = 360 + arcSin; // arcsin is negative here, actuall 360 - ang
+//        } else if (xo > 0 && yo < 0) { // x pos, y neg: upper-left
+//            bearing = 180 - arcSin;
+//        } else if (xo < 0 && yo < 0) { // both neg: upper-right
+//            bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
+//        }
+//
+//        return bearing;
+//    }
 
     private void aimAndShoot() { //http://robowiki.net/wiki/Circular_Targeting
         if (target != null) {
