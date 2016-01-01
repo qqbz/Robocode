@@ -7,53 +7,64 @@
  */
 package git;
 
-import static robocode.util.Utils.normalRelativeAngleDegrees;
+import java.awt.Color;
 import java.util.Hashtable;
 import java.awt.geom.Point2D;
-import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.ArrayList;
 import robocode.*;
 import robocode.util.Utils;
 import robocode.MessageEvent;
 import robocode.TeamRobot;
-import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 public class SteinbeißerDroid extends TeamRobot implements Droid {
 
-    public Hashtable<String, RobotInfo> robotFileList = new Hashtable<String, RobotInfo>();
-    SteinbeißerLeader leader = new SteinbeißerLeader();
-    RobotInfo robotFile = new RobotInfo();
-    String myNameIs = "git.SteinbeißerDroid";//
-    String target = "sample.Crazy";// zum testen da noch kein target
-//    String target = leader.getTarget();
+    public Hashtable<String, RobotInfo> robotsList = new Hashtable<String, RobotInfo>();
+    RobotInfo robotInformation = new RobotInfo();
+    String myNameIs = "test.SteinbeißerDroid*";
+    String bigBoss = "test.SteinbeißerLeader*";
+    String target;
+    double a, b;
+    private double oldEnemyHeading;
+    public boolean movingForward = true;
 
+    @Override
     public void run() {
 
-        while (true) {
+        RobotColors c = new RobotColors();
+        c.bodyColor = Color.black;
+        c.gunColor = Color.green;
+        c.bulletColor = Color.green;
+        setBodyColor(c.bodyColor);
+        setGunColor(c.gunColor);
+        setBulletColor(c.bulletColor);
 
+        do {
+            aimAndShoot();
             execute();
 
-        }
+        } while (true);
 
     }
 
     /**
      * onMessageReceived: What to do when our leader sends a message
      */
+    @Override
     public void onMessageReceived(MessageEvent e) {
-        robotFile = (RobotInfo) e.getMessage();
-        String scanedRobotName = robotFile.NAME;
-        if (!isTeammate(scanedRobotName)) {
-            if (!robotFileList.containsKey(scanedRobotName)) {
-                robotFileList.put(scanedRobotName, robotFile);
 
-            }
+        robotsList = (Hashtable<String, RobotInfo>) e.getMessage();
+        robotInformation = robotsList.get(bigBoss);
+        target = robotInformation.getTARGET();
+        System.out.println(" Ich bin an der X-Koordinate " + getX() + " Y-Koordinate " + getY());
+        if (target == null) {
+            System.out.println("KEIN ZIEL!");
+            goTo(robotsList.get(bigBoss));
+
+        } else {
+            System.out.println("HABE ZIEL!");
+            goTo(robotsList.get(target));
         }
-        robotFileList.replace(scanedRobotName, robotFile);
-        if (target.equals(robotFile.NAME)) {
-            goTo(robotFileList.get(target));
-        }
+
     }
 
     private void goTo(Point2D destination) {
@@ -79,12 +90,6 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         turnRight(angle); // complete the turn before going any distance (blocking call from Robot class)
         setAhead(distance);
 
-        if (distance <= 200) {
-            //vor dem schießen muss noch Winkel bestimmt werden
-            fire(1.5);
-            execute();
-        }
-
         // must be called because setAhead() will not move without a call to execute().
     }
 
@@ -108,92 +113,130 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         return bearing;
     }
 
-    @Override
-    public void onHitRobot(HitRobotEvent e) {
-        if (isTeammate(e.getName())) {
-            turnLeft(e.getBearing() + 90);
-            ahead(100);
-            System.out.println("Leader getroffen");
-        }
+    private void aimAndShoot() { //http://robowiki.net/wiki/Circular_Targeting
+        if (target != null) {
+            RobotInfo e = robotsList.get(target);
+            double bulletPower = getFirepower();//Math.min(3.0, getEnergy());
+            double myX = getX();
+            double myY = getY();
+            double absoluteBearing = getHeadingRadians() + e.getBearingRad();
+            double enemyX = getX() + e.distance(getX(), getY()) * Math.sin(absoluteBearing);
+            double enemyY = getY() + e.distance(getX(), getY()) * Math.cos(absoluteBearing);
+            double enemyHeading = e.getHeadingRad();
+            double enemyHeadingChange = enemyHeading - oldEnemyHeading;
+            double enemyVelocity = e.getVelocity();
+            oldEnemyHeading = enemyHeading;
 
+            double deltaTime = 0;
+            double battleFieldHeight = getBattleFieldHeight(),
+                    battleFieldWidth = getBattleFieldWidth();
+            double predictedX = enemyX, predictedY = enemyY;
+            while ((++deltaTime) * (20.0 - 3.0 * bulletPower)
+                    < Point2D.Double.distance(myX, myY, predictedX, predictedY)) {
+                predictedX += Math.sin(enemyHeading) * enemyVelocity;
+                predictedY += Math.cos(enemyHeading) * enemyVelocity;
+                enemyHeading += enemyHeadingChange;
+                if (predictedX < 18.0
+                        || predictedY < 18.0
+                        || predictedX > battleFieldWidth - 18.0
+                        || predictedY > battleFieldHeight - 18.0) {
+
+                    predictedX = Math.min(Math.max(18.0, predictedX),
+                            battleFieldWidth - 18.0);
+                    predictedY = Math.min(Math.max(18.0, predictedY),
+                            battleFieldHeight - 18.0);
+                    break;
+                }
+            }
+            double theta = Utils.normalAbsoluteAngle(Math.atan2(
+                    predictedX - getX(), predictedY - getY()));
+            a = getX() + 1500 * Math.sin(theta);
+            b = getY() + 1500 * Math.cos(theta);
+            theta = Utils.normalRelativeAngle(
+                    theta - getGunHeadingRadians());
+            setTurnGunRightRadians(theta);
+            System.out.println(bulletPower);
+            fire(bulletPower);
+        }
+    }
+
+    private double getFirepower() { //errechnet die beste Feuerkraft je nach Entfernung zur target
+        //Grenzen sind momentan noch grobe Schätzungen
+        //Formel: Schadeneffizienz = E =   (6x-2)*min(1, 18/(d*asin(8/(20-3x)))     /     (10+ceil(2*x)
+        //wobei x = Firepower; d = distance
+        double power;
+        double distance;
+        RobotInfo bot = (RobotInfo) robotsList.get(target);
+        distance = bot.distance(this.getX(), this.getY());
+        if (distance > 300) {
+            power = 0.8;
+        } else if (distance < 75) {
+            power = robocode.Rules.MAX_BULLET_POWER;
+        } else {
+            power = 1.5;
+        }
+        return power;
+    }
+
+    public Point2D[] generate() {
+        double height = this.getBattleFieldHeight();
+        double width = this.getBattleFieldWidth();
+        Point2D pointArray[];
+        ArrayList points = new ArrayList(1);
+        double theta;
+        double dist;
+        double safeDistance = 40;
+        for (int i = 0; i < 200; i++) {
+            theta = Math.random() * Math.PI * 2.0;
+            dist = Math.random() * 100.0 + 200.0;
+            Point2D p = projectPoint(new Point2D.Double(this.getX(), this.getY()), theta, dist);
+            if (p.getX() > safeDistance && p.getX() < width - 2 * safeDistance && p.getY() > safeDistance && p.getY() < height - 2 * safeDistance) {
+                points.add(p);//WARNUNG!!!
+            }
+        }
+        pointArray = new Point2D[points.size()];
+        for (int i = 0; i < points.size(); i++) {
+            pointArray[i] = (Point2D) points.get(i);
+        }
+//        for (int i = 0; i< points.size(); i++){
+//            System.out.println(a[i]);
+//        }
+        return pointArray;
+    }
+
+    private static Point2D projectPoint(Point2D startPoint, double theta, double dist) { //von Shiz
+        return new Point2D.Double(startPoint.getX() + dist * Math.sin(theta), startPoint.getY() + dist * Math.cos(theta));
     }
 
     @Override
     public void onHitWall(HitWallEvent event) {
-        out.println("Ich habe die Wand getroffen " + event.getBearing() + "180");
-        turnLeft(event.getBearing() + 45);
-        ahead(120);
+
+        reverseDirection();
+//        out.println("Ich habe die Wand getroffen " + event.getBearing() + "180");
+//        turnLeft(event.getBearing() + 45);
+//        ahead(120);
     }
-//
-//    private void move() {
-//
-//        double height = this.getBattleFieldHeight();
-//        double wide = this.getBattleFieldWidth();
-////        double yBuffer = DANGER_ZONE * height;
-//        double yBuffer = 120;
-//        double xBuffer = 120;
-//        double turnAngle = 45;
-//
-//        double xPosition = this.getX();
-//        double yPosition = this.getY();
-//        double direction = this.getHeading();
-////        System.out.println("Ich fahre");
-////        out.println(" die Position X=" + xPosition + " Y=" + yPosition);
-//
-//        if ((yPosition < yBuffer)) {
-//
-////            System.out.println("Gefahr");
-//            if ((this.getHeading() < 180) && (this.getHeading() > 90)) {
-//                setAhead(5);
-//                this.setTurnLeft(this.getHeading() - 90);
-//                execute();
-//            } else if ((this.getHeading() < 270) && (this.getHeading() > 180)) {
-//                setAhead(5);
-//                this.setTurnRight(270 - this.getHeading());
-//                execute();
-//
-//            }
-//
-//        } else if (yPosition > height - yBuffer) {
-////            System.out.println("Gefahr");
-//            if ((this.getHeading() < 90) && (this.getHeading() > 0)) {
-//                setAhead(5);
-//                this.setTurnRight(90 - this.getHeading());
-//                execute();
-//            } else if ((this.getHeading() < 360) && (this.getHeading() > 270)) {
-//                setAhead(5);
-//                this.setTurnLeft(this.getHeading() - 270);
-//                execute();
-//            }
-//        } else if (xPosition < xBuffer) {
-////            System.out.println("Gefahr");
-//            if ((this.getHeading() > 180) && (this.getHeading() < 270)) {
-//                setAhead(5);
-//                this.setTurnLeft(this.getHeading() - 180);
-//                execute();
-//            } else if ((this.getHeading() > 270) && (this.getHeading() < 360)) {
-//                setAhead(5);
-//                this.setTurnRight(360 - this.getHeading());
-//                execute();
-//            }
-//        } else if (xPosition > wide - xBuffer) {
-////            System.out.println("Gefahr");
-//            if ((this.getHeading() > 0) && (this.getHeading() < 90)) {
-//                setAhead(5);
-//                this.setTurnLeft(90 - this.getHeading());
-//                execute();
-//            } else if ((this.getHeading() > 90) && (this.getHeading() < 180)) {
-//                setAhead(5);
-//                this.setTurnRight(180 - this.getHeading());
-//                execute();
-//            }
-//        } else {
-//            this.setTurnRight(0);
-//            this.setTurnLeft(0);
-//        }
-//
-//        execute();
-//    }
-//
-//}
+
+    @Override
+    public void onHitRobot(HitRobotEvent e) {
+        if (isTeammate(e.getName())) {
+            reverseDirection();
+//            System.out.println("Leader getroffen");
+        }
+
+    }
+
+    public void reverseDirection() {
+        if (movingForward) {
+            setMaxVelocity(6);
+            setMaxTurnRate(Rules.MAX_TURN_RATE);
+            setBack(40000);
+            movingForward = false;
+        } else {
+            setMaxVelocity(6);
+            setMaxTurnRate(Rules.MAX_TURN_RATE);
+            setAhead(40000);
+            movingForward = true;
+        }
+    }
 }

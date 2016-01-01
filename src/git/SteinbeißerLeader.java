@@ -109,12 +109,13 @@ public class SteinbeißerLeader extends TeamRobot {
             leader.setHeadingRad(this.getHeadingRadians()); //
             
             doRadar();
+            leader.setTARGET(this.target);
             chooseTarget();
             aimAndShoot();
 
             try { //sendet Liste und das momentane Ziel an den Droid
                 broadcastMessage(robots);
-                broadcastMessage(target);
+//                broadcastMessage(target); // Droid bekommt NullPointerException, habe erstmal target über Robotinfo übergeben
             } catch (IOException ex) {
                 Logger.getLogger(SteinbeißerLeader.class.getName()).log(Level.SEVERE, null, ex);
             } //
