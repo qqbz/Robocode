@@ -20,8 +20,8 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
 
     public Hashtable<String, RobotInfo> robotsList = new Hashtable<String, RobotInfo>();
     RobotInfo robotInformation = new RobotInfo();
-    String myNameIs = "test.SteinbeißerDroid*";
-    String bigBoss = "test.SteinbeißerLeader*";
+    String myNameIs = "git.SteinbeißerDroid*";
+    String bigBoss = "git.SteinbeißerLeader*";
     String target;
     double a, b;
     private double oldEnemyHeading;
