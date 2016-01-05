@@ -9,7 +9,7 @@ import robocode.MessageEvent;
 import robocode.TeamRobot;
 import robocode.DeathEvent;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
-//kommunikation mit 
+//test an Luke
 public class SteinbeißerDroid extends TeamRobot implements Droid {
 
     public Hashtable<String, RobotInfo> robotsList = new Hashtable<String, RobotInfo>();
@@ -107,6 +107,7 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
 //    }
     
  //http://www.jasonsjava.com/?cat=2
+    
     private void goTo(Point2D destination) {
 //      stop(); // don't move again until we are ready
         Point2D location = new Point2D.Double(getX(), getY());
