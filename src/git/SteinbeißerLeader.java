@@ -40,6 +40,11 @@ public class SteinbeißerLeader extends TeamRobot {
      * Boolean Variable für das radar-lock bei einem einzelnen Gegner
      */
     boolean singleEnemy = false;
+     /**
+     * Long Variable für das festhalten der Zeit des letzten Targetwechsel
+     * in chooseTarget() verwendet
+     */
+    long timeOld = -50;
     /**
      *
      */
@@ -68,9 +73,8 @@ public class SteinbeißerLeader extends TeamRobot {
     double a,b;
 
     /*
-     TO DO:
-     chooseTarget(): schnelles Ändern der Target verhindern 
-     getFirepower(): Grenzwerte mit Formel festlegen
+     TO DO: 
+     getFirepower(): Grenzwerte mit Formel festlegen, Momentan linare funktion 
      Probleme bestehen beim gerammt werden: wenn ein Bot im Weg steht zum idealen Punkt und alle neuen idealen Punkte auch hinter diesem Bot liegen
             hängt der Leader die ganze Zeit am Bot und fährt nicht weg
      */
@@ -153,10 +157,7 @@ public class SteinbeißerLeader extends TeamRobot {
     @Override
     public void onMessageReceived(MessageEvent e) { //schaltet in den soloMode wenn der Droid seinen Tod meldet oder updated die Position des Droid
         RobotInfo droid = (RobotInfo) robots.get(e.getSender());
-        if (e.getMessage() == "I'm dead!") {
-            soloMode = true;
-            robots.remove(e.getSender());
-        } else if (e.getMessage() instanceof Point2D) {
+        if (e.getMessage() instanceof Point2D) {
             droid.setLocation((Point2D) e.getMessage());
         }
     }
@@ -173,10 +174,17 @@ public class SteinbeißerLeader extends TeamRobot {
                 scan();
             }
             
-            if (getOthers() == 1 && !singleEnemy){
+            if (getOthers() == 1 && !singleEnemy && soloMode){
                 singleEnemy = true;
                 System.out.println("single enemy");
             }
+          
+            //macht radarLock bei einem Gegner und Droid lebt aber hängt manchmal 
+            //mit der Radar an der Droid also unschön
+//            else if(getOthers() == 2 && !singleEnemy && !soloMode){
+//                singleEnemy = true;
+//                System.out.println("single enemy");
+//            }
 
     }
 
@@ -244,12 +252,12 @@ public class SteinbeißerLeader extends TeamRobot {
         double distance;
         RobotInfo bot = (RobotInfo) robots.get(target);
         distance = bot.distance(this.getX(), this.getY());
-        if (distance > 300) {
-            power = 0.8;
-        } else if (distance < 75) {
+        if (distance > 700) {
+            power = 0.5;
+        } else if (distance <= 200) {
             power = robocode.Rules.MAX_BULLET_POWER;
         } else {
-            power = 1.5;
+            power = 4 - (distance / 200);
         }
         return power;
     }
@@ -267,12 +275,13 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * Lässt den Bot zu den angegebenen Koordinaten fahren. Kleine Abweichungen sind möglich.
-     * @param x x-Koordinate des Zielpunktes
-     * @param y y-Koordinate des Zielpunktes
-     */
+    * Lässt den Bot zu den angegebenen Koordinaten fahren. Kleine Abweichungen sind möglich.
+    * @param x x-Koordinate des Zielpunktes
+    * @param y y-Koordinate des Zielpunktes
+    *         //http://robowiki.net/wiki/GoTo
+    */
     private void goTo(int x, int y) { //zwei alternative Methoden, beide aus dem Wiki
-        //http://robowiki.net/wiki/GoTo
+
         double alpha;
         setTurnRightRadians(Math.tan(
                 alpha = Math.atan2(x -= (int) getX(), y -= (int) getY())
@@ -391,6 +400,8 @@ public class SteinbeißerLeader extends TeamRobot {
         double minDistance = Double.POSITIVE_INFINITY;
         double botDistance;
         double targetDistance;
+        long timeWait = 50; //Ticks die gewartet werden bevor ein Targetwechsel zugelassen wird
+        long timeNow;
         RobotInfo bot;
         if (target != null) {
             bot = (RobotInfo) robots.get(target);
@@ -408,28 +419,33 @@ public class SteinbeißerLeader extends TeamRobot {
                 }
             }
         }
-        if (minDistance < targetDistance - 100.) {
+        timeNow = this.getTime();
+        System.out.println("old = " + timeOld + " now = " + timeNow);
+        if (minDistance < targetDistance - 100. && timeNow > timeOld + timeWait) {
+            timeOld = timeNow;
             this.target = closest;
         }
         //System.out.println(this.target);
     }
 
     /**
-     * Überprüfen ob eine Runde wegen zu langen Berechnungen übersprungen wurde.
-     *
-     * @param e SkippedTurnEvent
-     */
+    * Überprüfen ob eine Runde wegen zu langen Berechnungen übersprungen wurde.
+    *
+    * @param e SkippedTurnEvent
+    */
     @Override
     public void onSkippedTurn(SkippedTurnEvent e) {
         System.out.println("Round " + e.getSkippedTurn() + " was skipped!");
     }
 
     /**
-     * Löscht den Eintrag des getöteten Roboters aus der Liste und ruft
-     * chooseTarget() auf wenn dieser das momentane Ziel war.
-     *
-     * @param e RobotDeathEvent
-     */
+    * Löscht den Eintrag des getöteten Roboters aus der Liste und ruft
+    * chooseTarget() auf wenn dieser das momentane Ziel war.
+    *
+    * Fragt ob Droid gestorben ist, wenn ja wechselt in soloMode
+    * 
+    * @param e RobotDeathEvent
+    */
     @Override
     public void onRobotDeath(RobotDeathEvent e) {
         String deadBot = e.getName();
@@ -439,18 +455,8 @@ public class SteinbeißerLeader extends TeamRobot {
             chooseTarget();
         }
         sought = null;
-    }
-
-    /**
-     * Sendet dem Droid seinen Tod und eine letzte neue Version der Liste.
-     */
-    public void onDeath() { //sendet dem Droid seinen Tod und eine letzte Info über alle Roboter
-        robots.remove(this.getName());
-        try {
-            broadcastMessage("I'm dead!");
-            broadcastMessage(robots);
-        } catch (IOException ex) {
-            Logger.getLogger(SteinbeißerLeader.class.getName()).log(Level.SEVERE, null, ex);
+        if(isTeammate(deadBot)){
+            soloMode=true;
         }
     }
 
