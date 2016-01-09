@@ -10,6 +10,7 @@ import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import robocode.HitWallEvent;
 import robocode.ScannedRobotEvent;
 import robocode.TeamRobot;
 import robocode.MessageEvent;
@@ -71,6 +72,8 @@ public class SteinbeißerLeader extends TeamRobot {
     static LinkedHashMap<String, Double> enemyHashMap;
     private double oldEnemyHeading;
     double a,b;
+    long stoppingTime;
+    Point2D m;
 
     /*
      TO DO: 
@@ -103,6 +106,11 @@ public class SteinbeißerLeader extends TeamRobot {
         leader.setName(this.getName()); //
 
         setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
+        System.out.println("orangener Kreis: \tmaximaler Abstand von 1200 Einheiten");
+        System.out.println("rotes Rechteck: \tZielpunkt der momentanen Bewegung");
+        System.out.println("weiße Linie: \t\tmomentane Schusslinie");
+        
+        stoppingTime = 0;
         
         do {
             leader = (RobotInfo) robots.get(this.getName()); //updated die eigenen Werte
@@ -116,6 +124,8 @@ public class SteinbeißerLeader extends TeamRobot {
             leader.setTARGET(this.target);
             chooseTarget();
             aimAndShoot();
+            //ausgabeRoboterliste();
+            //checkStandingTime();
 
             try { //sendet Liste und das momentane Ziel an den Droid
                 broadcastMessage(robots);
@@ -143,6 +153,8 @@ public class SteinbeißerLeader extends TeamRobot {
             g.fillRect((int) m.getX() - 10, (int) m.getY() - 10, 20, 20);
             g.setColor(Color.WHITE);
             g.drawLine((int)getX(), (int)getY(), (int)a, (int)b);
+            g.setColor(Color.ORANGE);
+            g.drawOval((int)getX()-1200, (int)getY()-1200, 2400, 2400);
         } catch (Exception e) {
 
         }
@@ -233,7 +245,7 @@ public class SteinbeißerLeader extends TeamRobot {
             theta = Utils.normalRelativeAngle(
                     theta - getGunHeadingRadians());
             setTurnGunRightRadians(theta);
-            System.out.println(bulletPower);
+            //System.out.println(bulletPower);
             fire(bulletPower);
         }
     }
@@ -262,15 +274,15 @@ public class SteinbeißerLeader extends TeamRobot {
         return power;
     }
 
-    Point2D m;
-
     /**
      * Berechnet und bewegt sich in die neue Bewegungsrichtung.
      */
     private void move() {
+        Point2D ziel;
         if (this.getDistanceRemaining() == 0.) {
-            m = evaluate(generate());
-            goTo((int) m.getX(), (int) m.getY());
+            ziel = evaluate(generate());
+            m = ziel;
+            goTo((int) ziel.getX(), (int) ziel.getY());
         }
     }
 
@@ -333,12 +345,27 @@ public class SteinbeißerLeader extends TeamRobot {
         double theta;
         double dist;
         double safeDistance = 40;
-        for (int i = 0; i < 200; i++) {
-            theta = Math.random() * Math.PI * 2.0;
-            dist = Math.random() * 100.0 + 200.0;
-            Point2D p = projectPoint(new Point2D.Double(this.getX(), this.getY()), theta, dist);
-            if (p.getX() > safeDistance && p.getX() < width - 2 * safeDistance && p.getY() > safeDistance && p.getY() < height - 2 * safeDistance) {
-                points.add(p);
+        double maxDistance = 1200;
+        if (target != null){
+            RobotInfo targetInfo = (RobotInfo)robots.get(target);
+            for (int i = 0; i < 200; i++) {
+                theta = Math.random() * Math.PI * 2.0;
+                dist = Math.random() * 300.0 + 50.0;
+                Point2D p = projectPoint(new Point2D.Double(this.getX(), this.getY()), theta, dist);
+                if (p.getX() > safeDistance && p.getX() < width - 2 * safeDistance && p.getY() > safeDistance && p.getY() < height - 2 * safeDistance
+                        && p.distance(targetInfo.getX(), targetInfo.getY()) < maxDistance) {
+                    points.add(p);
+                }
+
+            }
+        } else {
+            for (int i = 0; i < 200; i++) {
+                theta = Math.random() * Math.PI * 2.0;
+                dist = Math.random() * 100.0 + 200.0;
+                Point2D p = projectPoint(new Point2D.Double(this.getX(), this.getY()), theta, dist);
+                if (p.getX() > safeDistance && p.getX() < width - 2 * safeDistance && p.getY() > safeDistance && p.getY() < height - 2 * safeDistance) {
+                    points.add(p);
+                }
             }
         }
         pointArray = new Point2D[points.size()];
@@ -420,7 +447,7 @@ public class SteinbeißerLeader extends TeamRobot {
             }
         }
         timeNow = this.getTime();
-        System.out.println("old = " + timeOld + " now = " + timeNow);
+        //System.out.println("old = " + timeOld + " now = " + timeNow);
         if (minDistance < targetDistance - 100. && timeNow > timeOld + timeWait) {
             timeOld = timeNow;
             this.target = closest;
@@ -439,10 +466,9 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-    * Löscht den Eintrag des getöteten Roboters aus der Liste und ruft
-    * chooseTarget() auf wenn dieser das momentane Ziel war.
-    *
-    * Fragt ob Droid gestorben ist, wenn ja wechselt in soloMode
+    * Löscht den Eintrag des getöteten Roboters aus der Liste. 
+    * Ruft chooseTarget() auf wenn der getöteten Roboters das momentane Ziel war.
+    * Wechselt in den soloMode wenn der getöteten Roboters das Teammitglied war.
     * 
     * @param e RobotDeathEvent
     */
@@ -470,6 +496,65 @@ public class SteinbeißerLeader extends TeamRobot {
      */
     private static Point2D projectPoint(Point2D startPoint, double theta, double dist) { //von Shiz
         return new Point2D.Double(startPoint.getX() + dist * Math.sin(theta), startPoint.getY() + dist * Math.cos(theta));
+    }
+    
+    /**
+     * Gibt die wichtigsten Daten des robots-Hashtables aus. (Zur Überprüfung eines Testkriteriums)
+     */
+    private void ausgabeRoboterliste(){
+        try {
+            int i = 0;
+            int highestTabCounter = 0;
+            for (String key : robots.keySet()){
+                int tabCounter = key.length() / 4;
+                if (tabCounter > highestTabCounter){
+                    highestTabCounter = tabCounter;
+                }                
+            }
+            System.out.print("Nummer\tName");
+            for (int j = 0; j < highestTabCounter; j++){
+                System.out.print("\t");
+            }
+            System.out.println("x-Koord.\ty-Koord.\tGeschw.\t\tEnergie");
+            System.out.println("---------------------------------------------------------------------------");
+            for (String key : robots.keySet()){
+                RobotInfo info = (RobotInfo) robots.get(key);
+                i++;
+                System.out.print(i+"\t\t"+key);
+                for (int j = 0; j < highestTabCounter + 1 - key.length() / 4; j++){
+                    System.out.print("\t");
+                }
+                System.out.printf("%.2f\t\t%.2f\t\t%.2f\t\t%.2fn", info.x, info.y, info.velocity, info.energy);
+                System.out.println("");
+            }
+            System.out.println("");
+            System.out.println("");
+        } catch (Exception e){}
+    }
+    
+    /**
+     * Meldet wenn der Leader die Wand gerammt hat. (Zur Überprüfung eines Testkriteriums)
+     * 
+     * @param event 
+     */
+    @Override
+    public void onHitWall(HitWallEvent event) {
+       out.println("Ouch, I hit a wall bearing " + event.getBearing() + " degrees.");
+    }
+
+    /**
+    * Meldet wenn der Leader länger als grenzwert an einer Stelle steht. (Zur Überprüfung eines Testkriteriums)
+    * @param grenzwert 
+    */
+    private void checkStandingTime(int grenzwert) {
+        if (getDistanceRemaining() == 0 && stoppingTime == 0){
+            stoppingTime = getTime();
+        } else if (getDistanceRemaining() != 0){
+            stoppingTime = 0;
+        }
+        if (getTime() - stoppingTime > grenzwert){
+            System.out.println("ich stehe zulange!");
+        }
     }
 
 }
