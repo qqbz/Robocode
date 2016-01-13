@@ -13,7 +13,7 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 public class SteinbeißerDroid extends TeamRobot implements Droid {
 
-    public Hashtable<String, RobotInfo> robotsList = new Hashtable<String, RobotInfo>();
+    public Hashtable<String, RobotInfo> robotsList = new Hashtable<>();
     RobotInfo robotInformation = new RobotInfo();
     /**
     * Der Name des Droids.
@@ -87,12 +87,17 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
     * @param e MessageEvent
     */
     @Override
+    @SuppressWarnings("empty-statement")
     public void onMessageReceived(MessageEvent e) {
-
-        this.robotsList = (Hashtable<String, RobotInfo>) e.getMessage();
-        this.leaderName = e.getSender();
-        this.robotInformation = robotsList.get(leaderName);
-        this.target = robotInformation.getTARGET();
+       
+        if (e.getMessage() instanceof String) {
+            System.out.println("i received the target: "+e.getMessage());
+        } else {
+            this.robotsList = (Hashtable<String, RobotInfo>) e.getMessage();
+            this.leaderName = e.getSender();
+            this.robotInformation = robotsList.get(leaderName);
+            this.target = robotInformation.getTARGET();
+        }
         
     }
 //schussrichtung zu ungenau muss noch besser werden
