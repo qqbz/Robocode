@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.LinkedHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import robocode.HitWallEvent;
 import robocode.ScannedRobotEvent;
 import robocode.TeamRobot;
@@ -48,38 +46,21 @@ public class SteinbeißerLeader extends TeamRobot {
     /**
      *
      */
-    Point2D goal;
-    /**
-     *
-     */
-    int targetingTime;
-    /**
-     *
-     */
-    double xForce, yForce;
-    /**
-     *
-     */
-    double angle;
-    /**
-     *
-     */
-    Point2D destination;
     static double scanDir;
     static Object sought;
     static LinkedHashMap<String, Double> enemyHashMap;
     private double oldEnemyHeading;
     double battleFieldHeight, battleFieldWidth;
+    int Radius = 100;
+    double safeWallDistance = 40;
+    int maxDistanceToEnemy = 1200;
+    int deadAllies = 0;
+    private int FORWARD = 1;
     //Variablen zum Debuggen
     double aSchusslinie, bSchusslinie;
     long stoppingTime;
     Point2D m;
     Point2D generatedPoints[];
-    int Radius = 100;
-    int movementWallDistance = 60;
-    double safeWallDistance = 40;
-    int maxDistanceToEnemy = 1200;
-    int deadAllies = 0;
 
     @Override
     public void run() {
@@ -111,9 +92,9 @@ public class SteinbeißerLeader extends TeamRobot {
         leader.setName(this.getName()); //
 
         setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
-        System.out.println("orangener Kreis: \tmaximaler Abstand von 1200 Einheiten");
-        System.out.println("rotes Rechteck: \tZielpunkt der momentanen Bewegung");
-        System.out.println("weiße Linie: \t\tmomentane Schusslinie");
+        //System.out.println("orangener Kreis: \tmaximaler Abstand von 1200 Einheiten");
+        //System.out.println("rotes Rechteck: \tZielpunkt der momentanen Bewegung");
+        //System.out.println("weiße Linie: \t\tmomentane Schusslinie");
 
         stoppingTime = 0;
         
@@ -157,18 +138,19 @@ public class SteinbeißerLeader extends TeamRobot {
             g.setColor(new Color(0xff, 0xff, 0xff, 0x80));
             g.drawLine((int) getX(), (int) getY(), (int) aSchusslinie, (int) bSchusslinie);
             g.drawOval((int) getX() - maxDistanceToEnemy, (int) getY() - maxDistanceToEnemy, 2*maxDistanceToEnemy, 2*maxDistanceToEnemy);
-            g.drawRect(movementWallDistance, movementWallDistance, (int)battleFieldWidth-2*movementWallDistance, (int)battleFieldHeight-2*movementWallDistance);
             g.drawRect((int)safeWallDistance, (int)safeWallDistance,(int)(battleFieldWidth-2*safeWallDistance), (int)(battleFieldHeight-2*safeWallDistance));
             g.drawOval((int) getX() - Radius, (int) getY() - Radius, 2 * Radius, 2 * Radius);
+            if (!soloMode){
             g.setColor(new Color(0xff, 0xcf, 0x00, 0x80));
-            try {
-                for (int i = 0; i < 200; i++) {
-                    g.fillRect((int) (generatedPoints[i].getX() - 10), (int) (generatedPoints[i].getY() - 10), 20, 20);
-                }
-            } catch (Exception e) {}
-            g.setColor(new Color(0xff, 0x00, 0x00, 0x80));
-            g.fillRect((int) m.getX() - 10, (int) m.getY() - 10, 20, 20);
-            g.drawLine((int)getX(), (int)getY(), (int) m.getX(), (int) m.getY());
+                try {
+                    for (int i = 0; i < 200; i++) {
+                        g.fillRect((int) (generatedPoints[i].getX() - 10), (int) (generatedPoints[i].getY() - 10), 20, 20);
+                    }
+                } catch (Exception e) {}
+                g.setColor(new Color(0xff, 0x00, 0x00, 0x80));
+                g.fillRect((int) m.getX() - 10, (int) m.getY() - 10, 20, 20);
+                g.drawLine((int)getX(), (int)getY(), (int) m.getX(), (int) m.getY());
+            }
         } catch (Exception e) {}
     }
 
@@ -289,10 +271,19 @@ public class SteinbeißerLeader extends TeamRobot {
      */
     private void move() {
         Point2D ziel;
-        if (this.getDistanceRemaining() == 0.) {
-            ziel = evaluate(generate());
-            m = ziel;
-            goTo((int) ziel.getX(), (int) ziel.getY());
+        if (!soloMode){
+            if (this.getDistanceRemaining() == 0.) {
+                ziel = evaluate(generate());
+                m = ziel;
+                goTo((int) ziel.getX(), (int) ziel.getY());
+            }
+        } else {
+            if (getDistanceRemaining() == 0) { 
+                int dist = (int)(Math.random() * 150) + 50;
+                FORWARD = -FORWARD; setAhead(dist * FORWARD); 
+            }
+            RobotInfo e = (RobotInfo)robots.get(target);
+            setTurnRightRadians(e.getBearingRad() + Math.PI/2 - 0.5236 * FORWARD * (e.distance(getX(), getY()) > 200 ? 1 : -1));
         }
     }
 
