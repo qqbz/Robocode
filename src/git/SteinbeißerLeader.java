@@ -25,42 +25,36 @@ public class SteinbeißerLeader extends TeamRobot {
     /**
      * Die Liste aller Roboter mit deren Daten.
      */
-    Hashtable<String, RobotInfo> robots = new Hashtable<>();
+    private Hashtable<String, RobotInfo> robots = new Hashtable<>();
     /**
      * Das aktuelle Ziel.
      */
-    String target;
+    private String target;
     /**
-     * Boolean Variable für geändertes Verhalten wenn der Droid zerstört wurde.
+     * Boolean ob der Leader alleine kämpft.
      */
-    boolean soloMode = false;
+    private boolean soloMode = false;
     /**
-     * Boolean Variable für das radar-lock bei einem einzelnen Gegner
+     * Boolean ob nur noch ein einzelner Gegner übrig ist.
      */
-    boolean singleEnemy = false;
-    /**
-     * Long Variable für das festhalten der Zeit des letzten Targetwechsel in
-     * chooseTarget() verwendet
-     */
-    long timeOld = -50;
-    /**
-     *
-     */
-    static double scanDir;
-    static Object sought;
-    static LinkedHashMap<String, Double> enemyHashMap;
+    private boolean singleEnemy = false;
+    
+    private long timeOld = -50;
+    private double scanDir;
+    private Object sought;
+    private LinkedHashMap<String, Double> enemyHashMap;
     private double oldEnemyHeading;
-    double battleFieldHeight, battleFieldWidth;
-    int Radius = 100;
-    double safeWallDistance = 40;
-    int maxDistanceToEnemy = 1200;
-    int deadAllies = 0;
+    private double battleFieldHeight, battleFieldWidth;
+    private final int RADIUS = 100;
+    private final double SAFEWALLDISTANCE = 40;
+    private final int MAXDISTANCETOENEMY = 1200;
+    private int deadAllies = 0;
     private int FORWARD = 1;
     //Variablen zum Debuggen
-    double aSchusslinie, bSchusslinie;
-    long stoppingTime;
-    Point2D m;
-    Point2D generatedPoints[];
+    private double aSchusslinie, bSchusslinie;
+    private long stoppingTime;
+    private Point2D m;
+    private Point2D generatedPoints[];
 
     @Override
     public void run() {
@@ -137,9 +131,9 @@ public class SteinbeißerLeader extends TeamRobot {
         try {
             g.setColor(new Color(0xff, 0xff, 0xff, 0x80));
             g.drawLine((int) getX(), (int) getY(), (int) aSchusslinie, (int) bSchusslinie);
-            g.drawOval((int) getX() - maxDistanceToEnemy, (int) getY() - maxDistanceToEnemy, 2*maxDistanceToEnemy, 2*maxDistanceToEnemy);
-            g.drawRect((int)safeWallDistance, (int)safeWallDistance,(int)(battleFieldWidth-2*safeWallDistance), (int)(battleFieldHeight-2*safeWallDistance));
-            g.drawOval((int) getX() - Radius, (int) getY() - Radius, 2 * Radius, 2 * Radius);
+            g.drawOval((int) getX() - MAXDISTANCETOENEMY, (int) getY() - MAXDISTANCETOENEMY, 2*MAXDISTANCETOENEMY, 2*MAXDISTANCETOENEMY);
+            g.drawRect((int)SAFEWALLDISTANCE, (int)SAFEWALLDISTANCE,(int)(battleFieldWidth-2*SAFEWALLDISTANCE), (int)(battleFieldHeight-2*SAFEWALLDISTANCE));
+            g.drawOval((int) getX() - RADIUS, (int) getY() - RADIUS, 2 * RADIUS, 2 * RADIUS);
             if (!soloMode){
             g.setColor(new Color(0xff, 0xcf, 0x00, 0x80));
                 try {
@@ -155,13 +149,12 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * Schaltet in den soloMode wenn der Droid seinen Tod meldet oder updated
-     * die Position des Droid.
+     * Updated die Position des Droid.
      *
      * @param e MessageEvent
      */
     @Override
-    public void onMessageReceived(MessageEvent e) { //schaltet in den soloMode wenn der Droid seinen Tod meldet oder updated die Position des Droid
+    public void onMessageReceived(MessageEvent e) {
         RobotInfo droid = (RobotInfo) robots.get(e.getSender());
         if (e.getMessage() instanceof Point2D) {
             droid.setLocation((Point2D) e.getMessage());
@@ -169,8 +162,7 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * SpinningRadar wenn mehrere Gegner vorhanden sind, Radar-lock wenn nur ein
-     * Gegner vorhanden ist.
+     * SpinningRadar wenn mehrere Gegner vorhanden sind, Radar-lock wenn nur ein Gegner vorhanden ist.
      */
     private void doRadar() {
         if (singleEnemy) {
@@ -179,7 +171,6 @@ public class SteinbeißerLeader extends TeamRobot {
             setTurnRadarRightRadians(scanDir * Double.POSITIVE_INFINITY);
             scan();
         }
-        
         String[] teammates = getTeammates();
         int numberOfEnemiesAlive;
         if (teammates != null){
@@ -196,11 +187,12 @@ public class SteinbeißerLeader extends TeamRobot {
 
     /**
      * Zielt und schießt. Circular Tergeting
+     * Quelle: http://robowiki.net/wiki/Circular_Targeting
      */
-    private void aimAndShoot() { //http://robowiki.net/wiki/Circular_Targeting
+    private void aimAndShoot() {
         if (target != null) {
             RobotInfo e = robots.get(target);
-            double bulletPower = getFirepower();//Math.min(3.0, getEnergy());
+            double bulletPower = getFirepower();
             double myX = getX();
             double myY = getY();
             double absoluteBearing = getHeadingRadians() + e.getBearingRad();
@@ -210,33 +202,22 @@ public class SteinbeißerLeader extends TeamRobot {
             double enemyHeadingChange = enemyHeading - oldEnemyHeading;
             double enemyVelocity = e.getVelocity();
             oldEnemyHeading = enemyHeading;
-
             double deltaTime = 0;
-            
             double predictedX = enemyX, predictedY = enemyY;
-            while ((++deltaTime) * (20.0 - 3.0 * bulletPower)
-                    < Point2D.Double.distance(myX, myY, predictedX, predictedY)) {
+            while ((++deltaTime) * (20.0 - 3.0 * bulletPower) < Point2D.Double.distance(myX, myY, predictedX, predictedY)) {
                 predictedX += Math.sin(enemyHeading) * enemyVelocity;
                 predictedY += Math.cos(enemyHeading) * enemyVelocity;
                 enemyHeading += enemyHeadingChange;
-                if (predictedX < 18.0
-                        || predictedY < 18.0
-                        || predictedX > battleFieldWidth - 18.0
-                        || predictedY > battleFieldHeight - 18.0) {
-
-                    predictedX = Math.min(Math.max(18.0, predictedX),
-                            battleFieldWidth - 18.0);
-                    predictedY = Math.min(Math.max(18.0, predictedY),
-                            battleFieldHeight - 18.0);
+                if (predictedX < 18.0 || predictedY < 18.0 || predictedX > battleFieldWidth - 18.0 || predictedY > battleFieldHeight - 18.0) {
+                    predictedX = Math.min(Math.max(18.0, predictedX), battleFieldWidth - 18.0);
+                    predictedY = Math.min(Math.max(18.0, predictedY), battleFieldHeight - 18.0);
                     break;
                 }
             }
-            double theta = Utils.normalAbsoluteAngle(Math.atan2(
-                    predictedX - getX(), predictedY - getY()));
+            double theta = Utils.normalAbsoluteAngle(Math.atan2(predictedX - getX(), predictedY - getY()));
             aSchusslinie = getX() + 1500 * Math.sin(theta);
             bSchusslinie = getY() + 1500 * Math.cos(theta);
-            theta = Utils.normalRelativeAngle(
-                    theta - getGunHeadingRadians());
+            theta = Utils.normalRelativeAngle(theta - getGunHeadingRadians());
             setTurnGunRightRadians(theta);
             //System.out.println(bulletPower);
             fire(bulletPower);
@@ -244,14 +225,11 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * Berechnet die Feuerkraft in Abhängigkeit von der Entfernung zum
-     * momentanen Ziel.
+     * Berechnet die Feuerkraft in Abhängigkeit von der Entfernung zum momentanen Ziel.
      *
      * @return Berechnete Feuerkraft
      */
-    private double getFirepower() { //errechnet die beste Feuerkraft je nach Entfernung zur target
-        //Formel: Schadeneffizienz = E =   (6x-2)*min(1, 18/(d*asin(8/(20-3x)))     /     (10+ceil(2*x)
-        //wobei x = Firepower; d = distance
+    private double getFirepower() {
         double power;
         double distance;
         RobotInfo bot = (RobotInfo) robots.get(target);
@@ -288,18 +266,15 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * Lässt den Bot zu den angegebenen Koordinaten fahren. Kleine Abweichungen
-     * sind möglich.
+     * Lässt den Bot zu den angegebenen Koordinaten fahren. Kleine Abweichungen sind möglich.
+     * Quelle: http://robowiki.net/wiki/GoTo
      *
      * @param x x-Koordinate des Zielpunktes
-     * @param y y-Koordinate des Zielpunktes //http://robowiki.net/wiki/GoTo
+     * @param y y-Koordinate des Zielpunktes
      */
     private void goTo(int x, int y) {
-
         double alpha;
-        setTurnRightRadians(Math.tan(
-                alpha = Math.atan2(x -= (int) getX(), y -= (int) getY())
-                - getHeadingRadians()));
+        setTurnRightRadians(Math.tan(alpha = Math.atan2(x -= (int) getX(), y -= (int) getY()) - getHeadingRadians()));
         setAhead(Math.hypot(x, y) * Math.cos(alpha));
     }
 
@@ -337,8 +312,7 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * Genertiert mögliche Punkte im Bereich von 200 bis 300 Einheiten um den
-     * Bot die um eine safeDistance von der Wand entfernt sind.
+     * Genertiert mögliche Punkte im Bereich von 200 bis 300 Einheiten um den Bot die um eine safeDistance von der Wand entfernt sind.
      *
      * @return die genertierten Punkte
      */
@@ -348,7 +322,6 @@ public class SteinbeißerLeader extends TeamRobot {
         ArrayList points = new ArrayList(1);
         double theta;
         double dist;
-        
         boolean pointBehindEnemy;
         if (target != null) {
             RobotInfo targetInfo = (RobotInfo) robots.get(target);
@@ -362,13 +335,13 @@ public class SteinbeißerLeader extends TeamRobot {
                         RobotInfo r = robots.get(key);
                         double robotAbsolutBearing = getHeadingRadians() + r.bearingRad;
                         double d = r.distance(getX(), getY());
-                        if (d < Radius && !(theta < robotAbsolutBearing - Math.PI / 2 || theta > robotAbsolutBearing + Math.PI / 2)) {
+                        if (d < RADIUS && !(theta < robotAbsolutBearing - Math.PI / 2 || theta > robotAbsolutBearing + Math.PI / 2)) {
                             pointBehindEnemy = true;
                         }
                     }
                 }
-                if (p.getX() > safeWallDistance && p.getX() < width - 2 * safeWallDistance && p.getY() > safeWallDistance
-                        && p.getY() < height - 2 * safeWallDistance && p.distance(targetInfo.getX(), targetInfo.getY()) < maxDistanceToEnemy && !pointBehindEnemy) {
+                if (p.getX() > SAFEWALLDISTANCE && p.getX() < width - 2 * SAFEWALLDISTANCE && p.getY() > SAFEWALLDISTANCE
+                        && p.getY() < height - 2 * SAFEWALLDISTANCE && p.distance(targetInfo.getX(), targetInfo.getY()) < MAXDISTANCETOENEMY && !pointBehindEnemy) {
                     points.add(p);
                 }
             }
@@ -377,13 +350,12 @@ public class SteinbeißerLeader extends TeamRobot {
                 theta = Math.random() * Math.PI * 2.0;
                 dist = Math.random() * 100.0 + 200.0;
                 Point2D p = projectPoint(new Point2D.Double(this.getX(), this.getY()), theta, dist);
-                if (p.getX() > safeWallDistance && p.getX() < battleFieldWidth - 2 * safeWallDistance && p.getY() > safeWallDistance && 
-                        p.getY() < battleFieldHeight - 2 * safeWallDistance) {
+                if (p.getX() > SAFEWALLDISTANCE && p.getX() < battleFieldWidth - 2 * SAFEWALLDISTANCE && p.getY() > SAFEWALLDISTANCE && 
+                        p.getY() < battleFieldHeight - 2 * SAFEWALLDISTANCE) {
                     points.add(p);
                 }
             }
         }
-        
         generatedPoints = new Point2D[points.size()];
         for (int i = 0; i < points.size(); i++) {
             generatedPoints[i] = (Point2D) points.get(i);
@@ -392,28 +364,26 @@ public class SteinbeißerLeader extends TeamRobot {
     }
 
     /**
-     * Trägt die Daten des gescannten Roboters in die Liste ein.
+     * Trägt die Daten des gescannten Roboters in die Liste ein bzw. updated diese.
+     * Quelle für Radar-Lock: http://robowiki.net/wiki/One_on_One_Radar
+     * Quelle für mehrere Gegner: http://robowiki.net/wiki/Melee_Radar
      *
      * @param e ScannedRobotEvent
      */
     @Override
-    public void onScannedRobot(ScannedRobotEvent e) { //updated den Eintrag des gescanten Robots
-        //http://robowiki.net/wiki/One_on_One_Radar
+    public void onScannedRobot(ScannedRobotEvent e) {
         if (this.singleEnemy && !isTeammate(e.getName())) {
             double radarTurn = getHeadingRadians() + e.getBearingRadians() - getRadarHeadingRadians();
             setTurnRadarRightRadians(1.9 * Utils.normalRelativeAngle(radarTurn));
-        } else { //http://robowiki.net/wiki/Melee_Radar
+        } else {
             String name = e.getName();
             LinkedHashMap<String, Double> ehm = enemyHashMap;
-
             ehm.put(name, getHeadingRadians() + e.getBearingRadians());
-
             if ((name == sought || sought == null) && ehm.size() == getOthers()) {
                 scanDir = Utils.normalRelativeAngle(ehm.values().iterator().next() - getRadarHeadingRadians());
                 sought = ehm.keySet().iterator().next();
             }
         }
-
         //angelehnt an Shiz
         String scanName = e.getName();
         if (!robots.containsKey(scanName)) {
@@ -432,9 +402,8 @@ public class SteinbeißerLeader extends TeamRobot {
     /**
      * Wählt ein neues Ziel aus.
      */
-    private void chooseTarget() { //wählt nähesten Gegner wenn es momentan kein Ziel gibt; 
+    private void chooseTarget() {
         //wechselt Ziel wenn ein Gegner dem Leader um 100 Einheiten näher ist als das momentan Ziel entfern ist
-        //TO DO: zu schnelles Wechseln verhindern mit this.getTime()
         String closest = null;
         Point2D myPosition = new Point2D.Double(this.getY(), this.getX());
         double minDistance = Double.POSITIVE_INFINITY;
