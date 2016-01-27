@@ -24,7 +24,7 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
     */
     String leaderName;
     /**
-    * Das aktuelle Ziel.
+    * Das aktuelle Ziel des Leaders.
     */
     String target;
     /**
@@ -40,10 +40,6 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
     */
     boolean soloMode = false;
     
-    /*
-    TO DO: 
-    shoot(): Trifft den Gegner noch nicht oft
-    */
     @Override
     public void run() {
 
@@ -57,21 +53,30 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
 
         this.droidName = getName();
         
+        double hoehe = this.getBattleFieldHeight();
+        double weite = this.getBattleFieldWidth();
+        
         do {
-            if(targetOld == null){
+            if(targetOld == null){ //solange der Gegner nicht zerstört, Ziel beibehalten
                 targetOld = target;
             }
             else if(robotsList.get(targetOld) == null) {
                  targetOld = null;   
             }
-            if ((soloMode == true)) {
-                soloMode();
-
+            if (soloMode == true) {
+                crazyMode();
             }
-            if (targetOld != null && robotsList.get(targetOld) != null) {
+            if (targetOld != null && robotsList.get(targetOld) != null && hoehe < 1200 && weite < 1200) {
                 goTo(robotsList.get(targetOld));
-                shoot();
-                System.out.println(" got target");
+                shoot(false);
+ //               System.out.println(" got target");
+            }
+            else if(target != null){
+                goTo(robotsList.get(target));
+                shoot(true);
+            }
+            else if(target == null){
+                crazyMode();
             }
            
             execute();
@@ -91,8 +96,9 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
     public void onMessageReceived(MessageEvent e) {
        
         if (e.getMessage() instanceof String) {
-            System.out.println("i received the target: "+e.getMessage());
+ //           System.out.println("Momentanes Target des Leaders: "+e.getMessage());
         } else {
+ //           System.out.println("Hashtable wurde aktualiesiert");
             this.robotsList = (Hashtable<String, RobotInfo>) e.getMessage();
             this.leaderName = e.getSender();
             this.robotInformation = robotsList.get(leaderName);
@@ -100,17 +106,22 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         }
         
     }
-//schussrichtung zu ungenau muss noch besser werden
+
     /**
     * Zielt und schießt
+    * Die Feuerkraft ist abhängig von der Entfernung zum Ziel
     */
-    public void shoot() {
+    public void shoot(boolean zuGross) {
  
         double firePower = 0;
         double dx = 0;
         double dy = 0;
 //        double absoluteBearing = 0;
-        if(targetOld != null && robotsList.get(targetOld) != null){
+        if(targetOld != null && robotsList.get(targetOld) != null  && !zuGross){
+        dx = robotsList.get(targetOld).getX() - this.getX();
+        dy = robotsList.get(targetOld).getY() - this.getY();
+        }
+        else if(target != null && zuGross){
         dx = robotsList.get(targetOld).getX() - this.getX();
         dy = robotsList.get(targetOld).getY() - this.getY();
         }
@@ -119,22 +130,19 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
 
         turnGunRight(normalRelativeAngleDegrees(theta - getGunHeading()));
 
-        System.out.println(" Target " + targetOld + " Distance " + distance);
-        
-//        absoluteBearing = getHeadingRadians() + 
-//            robotsList.get(target).getBearingRad();
-//        setTurnGunRight(robocode.util.Utils.normalRelativeAngle
-//            (absoluteBearing - getGunHeadingRadians()));        
+//        System.out.println(" Target " + targetOld + " Distance " + distance);      
 
-        if (distance > 700) {
-            firePower = 0.5;
-        } else if (distance <= 200) {
+        if (distance <= 100) {
             firePower = robocode.Rules.MAX_BULLET_POWER;
-        } else {
-            firePower = 4 - (distance / 200);
+            fire(firePower);
+        } else if (distance <= 300){
+            firePower = 4.5 - (3 * (distance / 200));
+            fire(firePower);
         }
-        System.out.println(" Fire with "+firePower);
-        fire(firePower);
+//        System.out.println("Das Ziel ist: " +target);
+
+        System.out.println("Entfernung: " + distance);
+        System.out.println("Schussstärke: " + firePower);
 
     }    
     
@@ -173,66 +181,97 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
     }
 
     /**
-    * Dreht bei Treffen des Leaders sich um
-    * Drehet sich durch reverseDirection()
-    * 
-    * else: Gegner hitten auf ihn zielen //robowiki.net/wiki/Fusion
-    *
-    * @param e SkippedTurnEvent
-    */
+     * Dreht bei Treffen des Leaders sich um
+     * Drehet sich durch reverseDirection()
+     * 
+     * else: Gegner hitten auf ihn zielen //robowiki.net/wiki/Fusion
+     *
+     *     
+     * Meldet wenn der Droid den Teammate gerammt hat. (Zur Überprüfung eines
+     * Testkriteriums)
+     *
+     * @param e SkippedTurnEvent
+     */
     @Override
     public void onHitRobot(HitRobotEvent e) {
         if (isTeammate(e.getName())) {
             reverseDirection();
+  //          System.out.println("Teammate gerammt!");
         }
         else{
             double absB = getHeadingRadians() + e.getBearingRadians();
             setTurnGunRightRadians(normalRelativeAngle(absB-getGunHeading()));
-            //setAhead(10);
-            System.out.println("hit dat guy");
-            shoot();
+//            System.out.println("hit dat guy");
+            fire(3);
         }
     }
 
     /**
-    * Dreht sich wenn er gegen die Wand fährt 
-    * Drehet sich durch reverseDirection()
-    *
-    * @param e SkippedTurnEvent
-    */    
+     * Dreht sich wenn er gegen die Wand fährt 
+     * Drehet sich durch reverseDirection()
+     * 
+     * Meldet wenn der Droid die Wand gerammt hat. (Zur Überprüfung eines
+     * Testkriteriums)
+     * 
+     * @param e SkippedTurnEvent
+     */    
     @Override
     public void onHitWall(HitWallEvent e) {
-        out.println("I hit the wall " + e.getBearing());
+ //       System.out.println("Wand gerammt !");
         reverseDirection();
     }
     
     /**
     * Fragt ob Leader gestorben ist, wenn ja wechselt in soloMode
-    * 
+    * Fragt ob das momentane Ziel des Droiden gestroben ist
     * @param e RobotDeathEvent
     */
     @Override
     public void onRobotDeath(RobotDeathEvent e) {
         String deadBot = e.getName();
-        //target=null;
         if (isTeammate(deadBot)) {
-            System.out.println(e.getName() + " is Dead!");
+ //           System.out.println(e.getName() + " is Dead!");
             soloMode = true;
+            target = null; //verhindert sinnloses schießen im soloMode
+            targetOld = null;
         }
         if(deadBot.equals(targetOld)){
             targetOld = null;
-            System.out.println("alte ziel tot");
+ //           System.out.println("alte ziel tot");
         }
        
     }
     
+    /**
+     * Meldet wenn der Droid vom Leader getroffen wurde. (Zur Überprüfung eines
+     * Testkriteriums)
+     * 
+     * @param e SkippedTurnEvent
+     */ 
+    @Override
+       public void onHitByBullet(HitByBulletEvent e) {
+       if (isTeammate(e.getName())) {
+  //          System.out.println(e.getName() + " hat mich Abgeschossen");
+       }    
+    }
+       
+    /**
+     * Meldet wenn der Droid einen Gegner trifft. (Zur Überprüfung eines
+     * Testkriteriums)
+     * 
+     * @param e SkippedTurnEvent
+     */
+    @Override
+    public void onBulletHit(BulletHitEvent e) {
+  //     System.out.println("Gegner: " + e.getName() + " getroffen");
+   }
     
     /**
     * Der soloMode des Droiden
     * 
     * Crazy - a sample robot by Mathew Nelson.
     */
-    public void soloMode() {
+    public void crazyMode() {
         setAhead(40000);
         movingForward = true;
         setTurnRight(90);
