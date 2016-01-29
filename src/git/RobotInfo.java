@@ -8,62 +8,85 @@ package git;
 import java.awt.geom.*;
 
 /**
+ * RobotInfo-Klasse zum Speichern der Daten der Bots
  *
- * @author SimonLaptop
+ * @author Simon Fella
  */
-public class RobotInfo extends Point2D.Double { //TO DO: welche Werte brauchen wir wirklich?
+public class RobotInfo extends Point2D.Double {
 
-    String NAME;
-    String TARGET;
-    double energy;
-    double velocity;
-    double bearingRad;
-    double headingRad;
+    private double energy;
+    private double velocity;
+    private double bearingRad;
+    private double headingRad;
 
-    public void setName(String a) {
-        this.NAME = a;
+    /**
+     * Sets the energy-Value.
+     * 
+     * @param newEnergy 
+     */
+    public void setEnergy(double newEnergy) {
+        this.energy = newEnergy;
     }
 
-    public String getName() {
-        return this.NAME;
-    }
-
-    public String getTARGET() {
-        return TARGET;
-    }
-
-    public void setTARGET(String TARGET) {
-        this.TARGET = TARGET;
-    }
-
-    public void setEnergy(double a) {
-        this.energy = a;
-    }
-
+    /**
+     * Gets the saved energy-Value.
+     * 
+     * @return the saved energy-Value
+     */
     public double getEnergy() {
         return this.energy;
     }
 
-    public void setVelocity(double a) {
-        this.velocity = a;
+    /**
+     * Sets the velocity-Value.
+     * 
+     * @param newVelocity 
+     */
+    public void setVelocity(double newVelocity) {
+        this.velocity = newVelocity;
     }
 
+    /**
+     * Gets the saved velocity-Value.
+     * 
+     * @return the saved velocity-Value
+     */
     public double getVelocity() {
         return this.velocity;
     }
 
-    public void setBearingRad(double a) {
-        this.bearingRad = a;
+    /**
+     * Sets the bearing-Value in rad.
+     * 
+     * @param newBearingRad 
+     */
+    public void setBearingRad(double newBearingRad) {
+        this.bearingRad = newBearingRad;
     }
 
+    /**
+     * Gets the saved bearing-Value in rad.
+     * 
+     * @return the saved bearing-Value in rad
+     */
     public double getBearingRad() {
         return this.bearingRad;
     }
 
-    public void setHeadingRad(double a) {
-        this.headingRad = a;
+    /**
+     * Sets the heading-Value in rad.
+     * 
+     * @param newHeadingRad 
+     */
+    public void setHeadingRad(double newHeadingRad) {
+        this.headingRad = newHeadingRad;
     }
 
+    /**
+     * Get the saved heading-Value in rad.
+     * 
+     * @return the saved heading-Value in rad
+     */
     public double getHeadingRad() {
         return this.headingRad;
     }
