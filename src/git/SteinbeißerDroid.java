@@ -7,8 +7,6 @@ import robocode.*;
 import robocode.util.Utils;
 import robocode.MessageEvent;
 import robocode.TeamRobot;
-import robocode.DeathEvent;
-import static robocode.util.Utils.normalRelativeAngle;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 /**
@@ -18,7 +16,14 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
  */
 public class SteinbeißerDroid extends TeamRobot implements Droid {
 
+    /**
+     * Liste aller gescannter Bots
+     */
     public Hashtable<String, RobotInfo> robotsList = new Hashtable<>();
+
+    /**
+     * Infodatei für gescannten Bot
+     */
     RobotInfo robotInformation = new RobotInfo();
     /**
      * Der Name des Droids.
@@ -58,22 +63,22 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         double weite = this.getBattleFieldWidth();
 
         do {
-            if (targetOld == null) { //solange der Gegner nicht zerstört, Ziel beibehalten
+            if (targetOld == null) { //                         solange der Gegner nicht zerstört, Ziel beibehalten
                 targetOld = target;
-            } else if (robotsList.get(targetOld) == null) {
+            } else if (robotsList.get(targetOld) == null) { //  wenn der Gegner vernichtet wurde(targetOld), lösche aus der Liste
                 targetOld = null;
             }
-            if (soloMode == true) {
+            if (soloMode == true) { //                          Leader tot, geh in den Crazy-Modus
                 crazyMode();
             }
-            if (targetOld != null && robotsList.get(targetOld) != null && hoehe < 1200 && weite < 1200) {
+            if (targetOld != null && robotsList.get(targetOld) != null && hoehe < 1200 && weite < 1200) {// Target vom Leader beim größerem Feld
                 goTo(robotsList.get(targetOld));
                 shoot(false);
                 //               System.out.println(" got target");
-            } else if (target != null) {
+            } else if (target != null) { //                     wenn Ziel vorhanden, fahre auf das Ziel und Schieße
                 goTo(robotsList.get(target));
                 shoot(true);
-            } else if (target == null) {
+            } else if (target == null) {  //                    wenn noch kein Ziel, fahre im Crazy-Modus
                 crazyMode();
             }
 
@@ -97,7 +102,7 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
             //           System.out.println("Momentanes Target des Leaders: "+e.getMessage());
             this.target = (String) e.getMessage();
         } else {
-            //           System.out.println("Hashtable wurde aktualiesiert");
+//           System.out.println("Hashtable wurde aktualiesiert");
             this.robotsList = (Hashtable<String, RobotInfo>) e.getMessage();
             this.leaderName = e.getSender();
             this.robotInformation = robotsList.get(leaderName);
@@ -108,6 +113,8 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
 
     /**
      * Zielt und schießt Die Feuerkraft ist abhängig von der Entfernung zum Ziel
+     *
+     * @param zuGross
      */
     public void shoot(boolean zuGross) {
 
@@ -124,11 +131,9 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         }
         double distance = Math.hypot(dx, dy);
         double theta = Math.toDegrees(Math.atan2(dx, dy));
-
         turnGunRight(normalRelativeAngleDegrees(theta - getGunHeading()));
-
-//        System.out.println(" Target " + targetOld + " Distance " + distance);      
-        if (distance <= 100) {
+//        System.out.println(" Target " + targetOld + " Distance " + distance);   
+        if (distance <= 100) {          //distanzabhängiges Schießen
             firePower = robocode.Rules.MAX_BULLET_POWER;
             fire(firePower);
         } else if (distance <= 300) {
@@ -161,7 +166,6 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
                 angle += 180;
             }
         }
-
         turnRight(angle);
         setAhead(distance);
         execute();
@@ -172,10 +176,11 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
      *
      * @param e SkippedTurnEvent
      */
-//    @Override
-//    public void onSkippedTurn(SkippedTurnEvent e) {
-//        System.out.println("Round " + e.getSkippedTurn() + " was skipped!");
-//    }
+    @Override
+    public void onSkippedTurn(SkippedTurnEvent e) {
+        System.out.println("Round " + e.getSkippedTurn() + " was skipped!");
+    }
+
     /**
      * Dreht bei Treffen des Leaders sich um Drehet sich durch
      * reverseDirection()
@@ -190,15 +195,32 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
      */
     @Override
     public void onHitRobot(HitRobotEvent e) {
+        
         if (isTeammate(e.getName())) {
-            reverseDirection();
-            //          System.out.println("Teammate gerammt!");
-        } else {
-            double absB = getHeadingRadians() + e.getBearingRadians();
-            setTurnGunRightRadians(normalRelativeAngle(absB - getGunHeading()));
-//            System.out.println("hit dat guy");
+            setBack(200);
+        }
+//                         System.out.println("Teammate gerammt!");
+        else {
+            double absB = getHeading() + e.getBearing();
+            setTurnGunRight(normalizeBearing(absB - getGunHeading()));
+//                        System.out.println("hit dat guy");
             fire(3);
         }
+    }
+
+    /**
+     * Normalisiert Bearing, um die Bewegung effizienter zu machen.
+     *
+     * Aus http://mark.random-article.com/weber/java/robocode/lesson4.html
+     */
+    double normalizeBearing(double angle) {
+        while (angle > 180) {
+            angle -= 360;
+        }
+        while (angle < -180) {
+            angle += 360;
+        }
+        return angle;
     }
 
     /**
@@ -228,7 +250,7 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         if (isTeammate(deadBot)) {
             //           System.out.println(e.getName() + " is Dead!");
             soloMode = true;
-            target = null; //verhindert sinnloses schießen im soloMode
+            target = null;  //verhindert sinnloses schießen im soloMode
             targetOld = null;
         }
         if (deadBot.equals(targetOld)) {
@@ -244,36 +266,45 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
      *
      * @param e SkippedTurnEvent
      */
-//    @Override
-//       public void onHitByBullet(HitByBulletEvent e) {
-//       if (isTeammate(e.getName())) {
-//  //          System.out.println(e.getName() + " hat mich Abgeschossen");
-//       }    
-//    }
+    @Override
+    public void onHitByBullet(HitByBulletEvent e) {
+        if (isTeammate(e.getName())) {
+            //          System.out.println(e.getName() + " hat mich Abgeschossen");
+        }
+    }
+
     /**
      * Meldet wenn der Droid einen Gegner trifft. (Zur Überprüfung eines
      * Testkriteriums)
      *
      * @param e SkippedTurnEvent
      */
-//    @Override
-//    public void onBulletHit(BulletHitEvent e) {
-//  //     System.out.println("Gegner: " + e.getName() + " getroffen");
-//   }
+    @Override
+    public void onBulletHit(BulletHitEvent e) {
+        //     System.out.println("Gegner: " + e.getName() + " getroffen");
+    }
+
     /**
-     * Der soloMode des Droiden
+     * Der soloMode des Droiden.
      *
-     * Crazy - a sample robot by Mathew Nelson.
+     * Crazy - a sample robot by Mathew Nelson (Angepasst)
+     *
      */
     public void crazyMode() {
         setAhead(40000);
         movingForward = true;
         setTurnRight(90);
-        waitFor(new TurnCompleteCondition(this));
-        setTurnLeft(180);
-        waitFor(new TurnCompleteCondition(this));
-        setTurnRight(180);
-        waitFor(new TurnCompleteCondition(this));
+        if (target == null) {                          // wenn noch kein Ziel soll warten bis der Befehl ausgeführt wird, ansonsten raus aus Crazy-Mode
+            waitFor(new TurnCompleteCondition(this)); // wartet bis die Anweisung ausgeführt wurde
+            setTurnLeft(180);
+            if (target == null) {
+                waitFor(new TurnCompleteCondition(this));
+                setTurnRight(180);
+                if (target == null) {
+                    waitFor(new TurnCompleteCondition(this));
+                }
+            }
+        }
 
     }
 
@@ -296,3 +327,4 @@ public class SteinbeißerDroid extends TeamRobot implements Droid {
         }
     }
 }
+
